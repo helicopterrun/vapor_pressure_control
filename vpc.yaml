@@ -1,9 +1,9 @@
 
 ###########################################################
 # Climate-Controlled Drying/Curing Chamber Project
-# Version: 0.7.1
+# Version: 0.7.2
 # Developer: Christopher Horton
-# GitHub: @helicopterrun
+# GitHub: https://github.com/helicopterrun/vapor_pressure_control
 #
 # This ESP32 setup manages the temperature and humidity
 # of a chamber using a TEC and sensors.
@@ -13,9 +13,9 @@
 
 # Substitutions (change these to your liking)
 substitutions:
-  device_name: "dry-cure-chamber" # Can only be lowercase letters, numbers, and hyphens
+  device_name: "dry-cure-chamber" # Can only be lowercase letters, numbers, and hyphens, max 24 characters
   ha_name: "Dry/Cure Chamber" # Can be any name you want
-  prefix: DCC
+  prefix: VPC
   min_chamber_temp: "40"
   max_chamber_temp: "100"
   step: "1.0"
@@ -36,8 +36,8 @@ esphome:
   friendly_name: $ha_name
   name_add_mac_suffix: true
   project:
-    name: helicopterrun.dry-cure-chamber
-    version: "0.7.1"
+    name: helicopterrun.vapor-pressure-control
+    version: "0.7.2"
 # Device configuration
 esp32:
   board: mhetesp32minikit
