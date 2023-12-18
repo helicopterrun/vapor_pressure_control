@@ -1,0 +1,509 @@
+
+###########################################################
+# Climate-Controlled Drying/Curing Chamber Project
+# Version: 0.7.1
+# Developer: Christopher Horton
+# GitHub: @helicopterrun
+#
+# This ESP32 setup manages the temperature and humidity
+# of a chamber using a TEC and sensors.
+# For more details, visit the GitHub repository.
+###########################################################
+
+
+# Substitutions (change these to your liking)
+substitutions:
+  device_name: "dry-cure-chamber" # Can only be lowercase letters, numbers, and hyphens
+  ha_name: "Dry/Cure Chamber" # Can be any name you want
+  prefix: DCC
+  min_chamber_temp: "40"
+  max_chamber_temp: "100"
+  step: "1.0"
+  temperature_unit: "°F"
+  slow: 60s
+  med: 10s
+  fast: 1s
+
+filters: &common_filters
+  - sliding_window_moving_average:
+      window_size: 10
+      send_every: 1
+      send_first_at: 1
+
+# ESPhome configuration
+esphome:
+  name: $device_name
+  friendly_name: $ha_name
+  name_add_mac_suffix: true
+  project:
+    name: helicopterrun.dry-cure-chamber
+    version: "0.7.1"
+# Device configuration
+esp32:
+  board: mhetesp32minikit
+
+# Logs
+logger:
+# level: DEBUG # Can be (NONE, ERROR, WARN, INFO, DEBUG, VERY_VERBOSE, or VERBOSE)
+
+# Network & PoE configuration
+# Make sure to change the SSID and password below #
+wifi:
+  ssid: ssd_here # Change this to your WiFi SSID
+  password: password_here # Change this to your WiFi password
+  power_save_mode: none # Disable power saving mode
+# Optional manual IP
+#  manual_ip:
+#    static_ip: 192.168.0.123
+#    gateway: 192.168.0.1
+#    subnet: 255.255.255.0
+
+# Enable Home Assistant API
+api:
+#  encryption:
+#    key: "api_key_here" # Enter your encryption key here
+
+ota:
+#  password: "password_here" # Change this to your ota password
+
+# This should point to the public location of this yaml file.
+dashboard_import:
+  package_import_url: github://helicoperrun/dry-cure-chamber/esphome/cannatrol.yaml
+  import_full_config: true # or false
+
+# Communications Bus Configuration
+# I2C bus setup
+i2c:
+  id: i2c_bus_main
+  sda: 21
+  scl: 22
+
+# SPI bus setup
+spi:
+  clk_pin: GPIO14
+  mosi_pin: GPIO13
+  miso_pin: GPIO12
+
+# Display Configuration
+#font:
+#  - file: "fonts/AlmaMono-Heavy.ttf"
+#    id: alma_heavy
+#    size: 10
+
+#display:
+#  - platform: ssd1306_i2c
+#    model: "SSD1306 128x64"
+#    address: 0x3C
+#    lambda: |-
+#     it.print(0, 0, id(alma_heavy), "Hello World!");
+
+# I2C multiplexer (tca9548a) setup
+tca9548a:
+  - address: 0x70
+    id: mux0
+    i2c_id: i2c_bus_main
+    channels:
+      # BUS0
+      - bus_id: mux0ch0
+        channel: 0
+      # BUS1
+      - bus_id: mux0ch1
+        channel: 1
+      # BUS2
+      - bus_id: mux0ch2
+        channel: 2
+      # BUS3
+      - bus_id: mumux0ch3
+        channel: 3
+      # BUS4
+      - bus_id: mux0ch4
+        channel: 4
+      # BUS5
+      - bus_id: mux0ch5
+        channel: 5
+      # BUS7
+      - bus_id: mmux0ch7
+        channel: 7
+
+ads1115:
+  address: 0x48
+  i2c_id: mux0ch5
+
+# Dallas 1-wire bus setup
+dallas:
+  - pin: 17
+    update_interval: $med
+
+# Input Number
+number:
+  # Dew Point Target
+  - platform: template
+    name: Dew Point Set Point
+    id: dewpoint_target
+    icon: mdi:thermometer-water
+    unit_of_measurement: $temperature_unit
+    device_class: temperature
+    optimistic: True
+    restore_value: True
+    initial_value: 54
+    min_value: $min_chamber_temp
+    max_value: $max_chamber_temp
+    step: $step
+
+  # Dry Bulb Target
+  - platform: template
+    name: Dry Bulb Set Point
+    id: drybulb_target
+    icon: mdi:target
+    unit_of_measurement: $temperature_unit
+    device_class: temperature
+    optimistic: true
+    initial_value: 68
+    min_value: $min_chamber_temp
+    max_value: $max_chamber_temp
+    step: $step
+
+# Sensor Configuration
+sensor:
+
+  - platform: adc
+    pin: 32
+    name: "TEC Current"
+    update_interval: $med
+
+  - platform: max31865
+    name: "Platinum Temperature"
+    cs_pin: 16
+    reference_resistance: 400 Ω
+    rtd_nominal_resistance: 100 Ω
+    rtd_wires: 3
+    update_interval: $fast
+    filters: *common_filters
+
+  - platform: ads1115
+    multiplexer: 'A0_A1'
+    gain: 6.144
+    name: "ADS1115 Channel A0-A01"
+
+  # Dallas Sensors
+  # Cold Side Temperature
+  - platform: dallas
+    address: 0x4203059794076228 # Change this to your sensor address
+    name: Cold Heatsink Probe
+    id: cold_temp
+    resolution: 10
+    unit_of_measurement: $temperature_unit
+    device_class: "temperature"
+    state_class: "measurement"
+    accuracy_decimals: 1
+    filters:
+      - sliding_window_moving_average:
+          window_size: 10
+          send_every: 1
+          send_first_at: 1
+      - lambda: return x * (9.0/5.0) + 32.0; # Convert to F
+  # Hot Side Temperature
+  - platform: dallas
+    address: 0x65031297944aef28 # Change this to your sensor address
+    name: Hot Side
+    id: hot_temp
+    unit_of_measurement: "°F"
+    device_class: "temperature"
+    state_class: "measurement"
+    resolution: 10
+    accuracy_decimals: 1
+    filters:
+      - sliding_window_moving_average:
+          window_size: 10
+          send_every: 1
+          send_first_at: 1
+      - lambda: return x * (9.0/5.0) + 32.0; # Convert to F
+
+  # Sensirion Sensors
+  # Chamber Conditions (sht3xd)
+  - platform: sht3xd
+    i2c_id: mux0ch0
+    temperature:
+      name: Dry Bulb Temperature (C)
+      id: drybulb_c
+    humidity:
+      name: Relative Humidity
+      id: humidity
+    update_interval: $med
+
+  # Chamber Dry Bulb (converted to F)
+  - platform: template
+    name: Dry Bulb Temperature (F)
+    id: drybulb_f
+    lambda: |-
+      return id(drybulb_c).state * (9.0/5.0) + 32.0; # Convert to F
+    unit_of_measurement: $temperature_unit
+    icon: "mdi:delta"
+    device_class: "temperature"
+    state_class: "measurement"
+    update_interval: $fast
+    filters: *common_filters
+
+  # Ambient Conditions Sensor (sht4x)
+  - platform: sht4x
+    i2c_id: mux0ch1
+    temperature:
+      name: Ambient Temperature
+      id: ambient_temp
+      filters:
+        - sliding_window_moving_average:
+            window_size: 10
+            send_every: 10
+            send_first_at: 1
+        - or:
+            - throttle: 60s
+            - delta: 0.5
+    humidity:
+      name: Ambient RH
+      id: ambient_humidity
+      filters:
+        - sliding_window_moving_average:
+            window_size: 10
+            send_every: 10
+            send_first_at: 1
+        - or:
+            - throttle: 60s
+            - delta: 0.5
+    update_interval: $med
+
+  # Dew Point Calculation
+  - platform: template
+    name: Dew Point
+    id: dewpoint
+    device_class: temperature
+    unit_of_measurement: $temperature_unit
+    accuracy_decimals: 1
+    state_class: measurement
+    lambda: |-
+      const float alpha = 6.112;  # hPa
+      const float beta = 17.62;
+      const float lambda = 243.12;  # degrees C
+
+      float RH = id(humidity).raw_state;  # Relative Humidity
+      float T = id(drybulb_c).raw_state;  # Temperature in (degrees C)
+
+      float H = log( RH/100 ) + beta * T / (lambda + T);
+      float Result = (lambda) * H / (beta - H);
+      return Result * (9.0/5.0) + 32.0;
+    update_interval: $fast
+    filters:
+      - sliding_window_moving_average:
+          window_size: 10
+          send_every: 1
+          send_first_at: 1
+
+  # Dry Bulb Error
+  - platform: template
+    name: Dry Bulb Error
+    id: drybulb_error
+    lambda: |-
+      return id(drybulb_target).state - id(drybulb).state;
+    unit_of_measurement: $temperature_unit
+    icon: "mdi:delta"
+    device_class: "temperature"
+    state_class: "measurement"
+    update_interval: $fast
+    filters:
+      - sliding_window_moving_average:
+          window_size: 10
+          send_every: 1
+          send_first_at: 1
+  # Dew Point Error
+  - platform: template
+    name: Dew Point Error
+    id: dewpoint_error
+    lambda: |-
+      return id(dewpoint_target).state - id(dewpoint).state;
+    unit_of_measurement: $temperature_unit
+    icon: "mdi:delta"
+    device_class: "temperature"
+    state_class: "measurement"
+    update_interval: $fast
+    filters:
+      - sliding_window_moving_average:
+          window_size: 10
+          send_every: 1
+          send_first_at: 1
+
+  # Fan Tach Sensors
+  # Hot Fan RPM
+  - platform: pulse_counter
+    pin:
+      number: 39
+      mode:
+        input: True
+    name: Hot Fan RPM
+    id: rpm_hot
+    unit_of_measurement: "RPM"
+    accuracy_decimals: 0
+    count_mode:
+      rising_edge: INCREMENT
+      falling_edge: DISABLE
+    update_interval: 1s
+    filters:
+      - multiply: 0.5
+      - sliding_window_moving_average:
+          window_size: 10
+          send_every: 10
+          send_first_at: 1
+
+  # Cold Fan RPM
+  - platform: pulse_counter
+    pin:
+      number: 34
+      mode:
+        input: True
+    name: Cold Fan RPM
+    id: rpm_cold
+    unit_of_measurement: "RPM"
+    accuracy_decimals: 0
+    count_mode:
+      rising_edge: INCREMENT
+      falling_edge: DISABLE
+    update_interval: 1s
+    filters:
+      - multiply: 0.5
+      - sliding_window_moving_average:
+          window_size: 10
+          send_every: 10
+          send_first_at: 1
+
+  # Circulation Fan RPM
+  - platform: pulse_counter
+    pin:
+      number: 36
+      mode:
+        input: True
+    name: Circulation Fan RPM
+    id: rpm_circ
+    unit_of_measurement: "RPM"
+    accuracy_decimals: 0
+    count_mode:
+      rising_edge: INCREMENT
+      falling_edge: DISABLE
+    update_interval: 1s
+    filters:
+      - multiply: 0.5
+      - sliding_window_moving_average:
+          window_size: 10
+          send_every: 10
+          send_first_at: 1
+
+  # Mirror Fan RPM
+  - platform: pulse_counter
+    pin:
+      number: 35
+      mode:
+        input: True
+    name: Mirror Fan RPM
+    id: rpm_mirr
+    unit_of_measurement: "RPM"
+    accuracy_decimals: 0
+    count_mode:
+      rising_edge: INCREMENT
+      falling_edge: DISABLE
+    update_interval: 1s
+    filters:
+      - multiply: 0.5
+      - sliding_window_moving_average:
+          window_size: 10
+          send_every: 10
+          send_first_at: 1
+
+fan:
+  - platform: speed
+    output: fan_cold
+    name: Cold Fan PWM
+
+  - platform: speed
+    output: fan_hot
+    name: Hot Fan PWM
+
+  - platform: speed
+    output: fan_circ
+    name: Circulation Fan PWM
+
+  - platform: speed
+    output: fan_mirr
+    name: Mirror Fan PWM
+
+  - platform: speed
+    output: tec_pwr
+    name: TEC Power Level Output
+
+# Output Pin Configuration
+output:
+  # Cold Fan PWM channel
+  - platform: ledc
+    pin:
+      number: 18
+    frequency: 25000 Hz
+    id: fan_cold
+    min_power: 0.0
+    max_power: 1.0
+
+  # Hot Fan PWM channel
+  - platform: ledc
+    pin:
+      number: 19
+    frequency: 25000 Hz
+    id: fan_hot
+    min_power: 0.0
+    max_power: 1.0
+
+  # Circulation Fan PWM channel
+  - platform: ledc
+    pin:
+      number: 23
+    frequency: 25000 Hz
+    id: fan_circ
+    min_power: 0.0
+    max_power: 1.0
+
+  # Mirror Fan PWM channel
+  - platform: ledc
+    pin:
+      number: 25
+    frequency: 25000 Hz
+    id: fan_mirr
+    min_power: 0.0
+    max_power: 1.0
+
+  # Mean Well Power Supply PWM channel
+  - platform: ledc
+    pin:
+      number: 5
+    frequency: 25000 Hz
+    id: tec_pwr
+
+  - platform: slow_pwm
+    pin: 26
+    id: output_1
+    period: 15s
+
+  - platform: slow_pwm
+    pin: 27
+    id: output_2
+    period: 15s
+
+  - platform: slow_pwm
+    pin: 32
+    id: output_3
+    period: 15s
+
+  - platform: slow_pwm
+    pin: 33
+    id: output_4
+    period: 15s
+
+switch:
+  # TEC Forward/Reverse
+  - platform: gpio
+    name: tec_fwd_rev
+    pin:
+      number: 15
