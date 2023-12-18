@@ -97,7 +97,7 @@ sensor:
     rtd_nominal_resistance: 100 Ω
     rtd_wires: 3
     update_interval: $fast
-    filters: *common_filters
+    filters: !include sliding_window.yaml
 
   - platform: ads1115
     multiplexer: 'A0_A1'
@@ -115,12 +115,10 @@ sensor:
     device_class: "temperature"
     state_class: "measurement"
     accuracy_decimals: 1
-    filters:
-      - sliding_window_moving_average:
-          window_size: 10
-          send_every: 1
-          send_first_at: 1
-      - lambda: return x * (9.0/5.0) + 32.0; # Convert to F
+    filters: 
+      - !include sliding_window.yaml
+      - !include c2f.yaml
+
   # Hot Side Temperature
   - platform: dallas
     address: 0x65031297944aef28 # Change this to your sensor address
@@ -131,12 +129,9 @@ sensor:
     state_class: "measurement"
     resolution: 10
     accuracy_decimals: 1
-    filters:
-      - sliding_window_moving_average:
-          window_size: 10
-          send_every: 1
-          send_first_at: 1
-      - lambda: return x * (9.0/5.0) + 32.0; # Convert to F
+    filters: 
+      - !include sliding_window.yaml
+      - !include c2f.yaml
 
   # Sensirion Sensors
   # Chamber Conditions (sht3xd)
@@ -144,7 +139,7 @@ sensor:
     i2c_id: mux0ch0
     temperature:
       name: Dry Bulb Temperature (C)
-      id: drybulb_c
+      id: drybulb
     humidity:
       name: Relative Humidity
       id: humidity
@@ -161,7 +156,6 @@ sensor:
     device_class: "temperature"
     state_class: "measurement"
     update_interval: $fast
-    filters: *common_filters
 
   # Ambient Conditions Sensor (sht4x)
   - platform: sht4x
@@ -169,25 +163,13 @@ sensor:
     temperature:
       name: Ambient Temperature
       id: ambient_temp
-      filters:
-        - sliding_window_moving_average:
-            window_size: 10
-            send_every: 10
-            send_first_at: 1
-        - or:
-            - throttle: 60s
-            - delta: 0.5
+    filters: 
+      - !include sliding_window.yaml
+      - !include c2f.yaml
     humidity:
       name: Ambient RH
       id: ambient_humidity
-      filters:
-        - sliding_window_moving_average:
-            window_size: 10
-            send_every: 10
-            send_first_at: 1
-        - or:
-            - throttle: 60s
-            - delta: 0.5
+      filters: !include sliding_window.yaml
     update_interval: $med
 
   # Dew Point Calculation
@@ -198,23 +180,9 @@ sensor:
     unit_of_measurement: $temperature_unit
     accuracy_decimals: 1
     state_class: measurement
-    lambda: |-
-      const float alpha = 6.112;  # hPa
-      const float beta = 17.62;
-      const float lambda = 243.12;  # degrees C
-
-      float RH = id(humidity).raw_state;  # Relative Humidity
-      float T = id(drybulb_c).raw_state;  # Temperature in (degrees C)
-
-      float H = log( RH/100 ) + beta * T / (lambda + T);
-      float Result = (lambda) * H / (beta - H);
-      return Result * (9.0/5.0) + 32.0;
+    lambda: !include dewpoint.yaml
     update_interval: $fast
-    filters:
-      - sliding_window_moving_average:
-          window_size: 10
-          send_every: 1
-          send_first_at: 1
+    filters: !include sliding_window.yaml
 
   # Dry Bulb Error
   - platform: template
@@ -227,11 +195,7 @@ sensor:
     device_class: "temperature"
     state_class: "measurement"
     update_interval: $fast
-    filters:
-      - sliding_window_moving_average:
-          window_size: 10
-          send_every: 1
-          send_first_at: 1
+
   # Dew Point Error
   - platform: template
     name: Dew Point Error
@@ -243,11 +207,6 @@ sensor:
     device_class: "temperature"
     state_class: "measurement"
     update_interval: $fast
-    filters:
-      - sliding_window_moving_average:
-          window_size: 10
-          send_every: 1
-          send_first_at: 1
 
   # Fan Tach Sensors
   # Hot Fan RPM
@@ -263,13 +222,10 @@ sensor:
     count_mode:
       rising_edge: INCREMENT
       falling_edge: DISABLE
-    update_interval: 1s
+    update_interval: $slow
     filters:
       - multiply: 0.5
-      - sliding_window_moving_average:
-          window_size: 10
-          send_every: 10
-          send_first_at: 1
+      - $!include sliding_window.yaml
 
   # Cold Fan RPM
   - platform: pulse_counter
@@ -284,13 +240,10 @@ sensor:
     count_mode:
       rising_edge: INCREMENT
       falling_edge: DISABLE
-    update_interval: 1s
+    update_interval: $slow
     filters:
       - multiply: 0.5
-      - sliding_window_moving_average:
-          window_size: 10
-          send_every: 10
-          send_first_at: 1
+      - $!include sliding_window.yaml
 
   # Circulation Fan RPM
   - platform: pulse_counter
@@ -305,13 +258,10 @@ sensor:
     count_mode:
       rising_edge: INCREMENT
       falling_edge: DISABLE
-    update_interval: 1s
+    update_interval: $slow
     filters:
       - multiply: 0.5
-      - sliding_window_moving_average:
-          window_size: 10
-          send_every: 10
-          send_first_at: 1
+      - $!include sliding_window.yaml
 
   # Mirror Fan RPM
   - platform: pulse_counter
@@ -326,13 +276,10 @@ sensor:
     count_mode:
       rising_edge: INCREMENT
       falling_edge: DISABLE
-    update_interval: 1s
+    update_interval: $slow
     filters:
       - multiply: 0.5
-      - sliding_window_moving_average:
-          window_size: 10
-          send_every: 10
-          send_first_at: 1
+      - $!include sliding_window.yaml
 
 fan:
   - platform: speed
@@ -363,8 +310,6 @@ output:
       number: 18
     frequency: 25000 Hz
     id: fan_cold
-    min_power: 0.0
-    max_power: 1.0
 
   # Hot Fan PWM channel
   - platform: ledc
@@ -372,8 +317,6 @@ output:
       number: 19
     frequency: 25000 Hz
     id: fan_hot
-    min_power: 0.0
-    max_power: 1.0
 
   # Circulation Fan PWM channel
   - platform: ledc
@@ -381,8 +324,6 @@ output:
       number: 23
     frequency: 25000 Hz
     id: fan_circ
-    min_power: 0.0
-    max_power: 1.0
 
   # Mirror Fan PWM channel
   - platform: ledc
@@ -390,14 +331,12 @@ output:
       number: 25
     frequency: 25000 Hz
     id: fan_mirr
-    min_power: 0.0
-    max_power: 1.0
 
   # Mean Well Power Supply PWM channel
   - platform: ledc
     pin:
       number: 5
-    frequency: 25000 Hz
+    frequency: 1220 Hz
     id: tec_pwr
 
   - platform: slow_pwm
