@@ -1,4 +1,3 @@
-
 ###########################################################
 # Climate-Controlled Drying/Curing Chamber Project
 # Version: 0.7.2
@@ -10,12 +9,13 @@
 # For more details, visit the GitHub repository.
 ###########################################################
 
-
 # Substitutions (change these to your liking)
 substitutions:
   device_name: "dry-cure-chamber" # Can only be lowercase letters, numbers, and hyphens, max 24 characters
   ha_name: "Dry/Cure Chamber" # Can be any name you want
   prefix: VPC
+  project: "helicopterrun.vapor-pressure-control"
+  version: "0.7.2"
   min_chamber_temp: "40"
   max_chamber_temp: "100"
   step: "1.0"
@@ -24,65 +24,12 @@ substitutions:
   med: 10s
   fast: 1s
 
-filters: &common_filters
-  - sliding_window_moving_average:
-      window_size: 10
-      send_every: 1
-      send_first_at: 1
-
-# ESPhome configuration
-esphome:
-  name: $device_name
-  friendly_name: $ha_name
-  name_add_mac_suffix: true
-  project:
-    name: helicopterrun.vapor-pressure-control
-    version: "0.7.2"
-# Device configuration
-esp32:
-  board: mhetesp32minikit
-
-# Logs
-logger:
-# level: DEBUG # Can be (NONE, ERROR, WARN, INFO, DEBUG, VERY_VERBOSE, or VERBOSE)
-
-# Network & PoE configuration
-# Make sure to change the SSID and password below #
-wifi:
-  ssid: ssd_here # Change this to your WiFi SSID
-  password: password_here # Change this to your WiFi password
-  power_save_mode: none # Disable power saving mode
-# Optional manual IP
-#  manual_ip:
-#    static_ip: 192.168.0.123
-#    gateway: 192.168.0.1
-#    subnet: 255.255.255.0
-
-# Enable Home Assistant API
-api:
-#  encryption:
-#    key: "api_key_here" # Enter your encryption key here
-
-ota:
-#  password: "password_here" # Change this to your ota password
+<<: !include vpccommon.yaml
 
 # This should point to the public location of this yaml file.
 dashboard_import:
-  package_import_url: github://helicoperrun/dry-cure-chamber/esphome/cannatrol.yaml
+  package_import_url: github://helicoperrun/dry-cure-chamber/esphome/vpc.yaml
   import_full_config: true # or false
-
-# Communications Bus Configuration
-# I2C bus setup
-i2c:
-  id: i2c_bus_main
-  sda: 21
-  scl: 22
-
-# SPI bus setup
-spi:
-  clk_pin: GPIO14
-  mosi_pin: GPIO13
-  miso_pin: GPIO12
 
 # Display Configuration
 #font:
@@ -96,34 +43,6 @@ spi:
 #    address: 0x3C
 #    lambda: |-
 #     it.print(0, 0, id(alma_heavy), "Hello World!");
-
-# I2C multiplexer (tca9548a) setup
-tca9548a:
-  - address: 0x70
-    id: mux0
-    i2c_id: i2c_bus_main
-    channels:
-      # BUS0
-      - bus_id: mux0ch0
-        channel: 0
-      # BUS1
-      - bus_id: mux0ch1
-        channel: 1
-      # BUS2
-      - bus_id: mux0ch2
-        channel: 2
-      # BUS3
-      - bus_id: mumux0ch3
-        channel: 3
-      # BUS4
-      - bus_id: mux0ch4
-        channel: 4
-      # BUS5
-      - bus_id: mux0ch5
-        channel: 5
-      # BUS7
-      - bus_id: mmux0ch7
-        channel: 7
 
 ads1115:
   address: 0x48

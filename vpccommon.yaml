@@ -1,0 +1,79 @@
+# ESPhome configuration
+esphome:
+  name: $device_name
+  friendly_name: $ha_name
+  name_add_mac_suffix: true
+  project:
+    name: $project
+    version: $version
+# Device configuration
+esp32:
+  board: mhetesp32minikit
+
+# Logs
+logger:
+# level: DEBUG # Can be (NONE, ERROR, WARN, INFO, DEBUG, VERY_VERBOSE, or VERBOSE)
+
+# Network & PoE configuration
+# Make sure to change the SSID and password below #
+wifi:
+  ssid: !secret wifi_ssid 
+  password: !secret wifi_password
+  power_save_mode: none # Disable power saving mode
+# Optional manual IP
+#  manual_ip:
+#    static_ip: 192.168.0.123
+#    gateway: 192.168.0.1
+#    subnet: 255.255.255.0
+
+# Enable Home Assistant API
+api:
+#  encryption:
+#    key: "api_key_here" # Enter your encryption key here
+
+ota:
+#  password: "password_here" # Change this to your ota password
+
+# Communications Bus Configuration
+# I2C bus setup
+i2c:
+  id: i2c_bus_main
+  sda: 21
+  scl: 22
+
+# SPI bus setup
+spi:
+  clk_pin: GPIO14
+  mosi_pin: GPIO13
+  miso_pin: GPIO12
+
+# I2C multiplexer (tca9548a) setup
+tca9548a:
+  - address: 0x70
+    id: mux0
+    i2c_id: i2c_bus_main
+    channels:
+      # BUS0
+      - bus_id: mux0ch0
+        channel: 0
+      # BUS1
+      - bus_id: mux0ch1
+        channel: 1
+      # BUS2
+      - bus_id: mux0ch2
+        channel: 2
+      # BUS3
+      - bus_id: mux0ch3
+        channel: 3
+      # BUS4
+      - bus_id: mux0ch4
+        channel: 4
+      # BUS5
+      - bus_id: mux0ch5
+        channel: 5
+      # BUS6
+      - bus_id: mux0ch6
+        channel: 6
+      # BUS7
+      - bus_id: mux0ch7
+        channel: 7 
