@@ -1,4 +1,4 @@
-# vapor_pressure_control
+# Chamber Conditions Control System
 Vapor pressure control for an enclosed space for drying/curing and other uses
 
 Pinout:
